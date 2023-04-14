@@ -1,7 +1,7 @@
 import sys
 import coremltools as ct
 import torch
-import model
+import model as mobilevit
 
 if __name__ == '__main__':
     num_classes = int(sys.argv[1])
@@ -18,16 +18,16 @@ if __name__ == '__main__':
     name = "mobile_vit_%ssmall" % factor
 
 
-    create_model = getattr(model, name)
+    create_model = getattr(mobilevit, name)
 
     device = torch.device("cpu")
-    mymodel = create_model(num_classes=num_classes).to(device)
-    mymodel.load_state_dict(torch.load(weights, map_location=device))
-    mymodel.eval()
+    model = create_model(num_classes=num_classes).to(device)
+    model.load_state_dict(torch.load(weights, map_location=device))
+    model.eval()
 
     size = 256
     inputs = torch.randn((1, 3, size, size))
-    traced_model = torch.jit.trace(mymodel, inputs)
+    traced_model = torch.jit.trace(model, inputs)
 
     image_input = ct.ImageType(name="input", shape=inputs.shape, scale=1./ 255.)
 

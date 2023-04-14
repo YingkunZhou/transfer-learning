@@ -7,7 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 
 from my_dataset import MyDataSet
-from model import mobile_vit_xx_small as create_model
+import model as mobilevit
 from utils import read_split_data, train_one_epoch, evaluate
 
 
@@ -21,12 +21,12 @@ def main(args):
 
     train_images_path, train_images_label, val_images_path, val_images_label = read_split_data(args.data_path)
 
-    img_size = 224
+    img_size = 256
     data_transform = {
         "train": transforms.Compose([transforms.RandomResizedCrop(img_size),
                                      transforms.RandomHorizontalFlip(),
                                      transforms.ToTensor()]),
-        "val": transforms.Compose([transforms.Resize(int(img_size * 1.143)),
+        "val": transforms.Compose([transforms.Resize(img_size),
                                    transforms.CenterCrop(img_size),
                                    transforms.ToTensor()])}
 
@@ -56,7 +56,8 @@ def main(args):
                                              pin_memory=True,
                                              num_workers=nw,
                                              collate_fn=val_dataset.collate_fn)
-
+    
+    create_model = getattr(mobilevit, "mobile_vit_"+args.factor)
     model = create_model(num_classes=args.num_classes).to(device)
 
     if args.weights != "":
@@ -115,6 +116,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--batch-size', type=int, default=8)
     parser.add_argument('--lr', type=float, default=0.0002)
+    parser.add_argument('--factor', type=str, default='xx_small')
 
     # 数据集所在根目录
     # https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz
@@ -122,7 +124,7 @@ if __name__ == '__main__':
                         default="../flower_photos")
 
     # 预训练权重路径，如果不想载入就设置为空字符
-    parser.add_argument('--weights', type=str, default='./mobilevit_xxs.pt',
+    parser.add_argument('--weights', type=str, default='./weights/mobilevit_xxs.pt',
                         help='initial weights path')
     # 是否冻结权重
     parser.add_argument('--freeze-layers', type=bool, default=False)
