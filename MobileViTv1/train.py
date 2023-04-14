@@ -25,12 +25,10 @@ def main(args):
     data_transform = {
         "train": transforms.Compose([transforms.RandomResizedCrop(img_size),
                                      transforms.RandomHorizontalFlip(),
-                                     transforms.ToTensor(),
-                                     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])]),
+                                     transforms.ToTensor()]),
         "val": transforms.Compose([transforms.Resize(int(img_size * 1.143)),
                                    transforms.CenterCrop(img_size),
-                                   transforms.ToTensor(),
-                                   transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])}
+                                   transforms.ToTensor()])}
 
     # 实例化训练数据集
     train_dataset = MyDataSet(images_path=train_images_path,
