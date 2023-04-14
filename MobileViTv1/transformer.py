@@ -3,6 +3,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 from torch import Tensor
+from activations import HardSwish
 
 
 class MultiHeadAttention(nn.Module):
@@ -134,7 +135,8 @@ class TransformerEncoder(nn.Module):
         self.pre_norm_ffn = nn.Sequential(
             nn.LayerNorm(embed_dim),
             nn.Linear(in_features=embed_dim, out_features=ffn_latent_dim, bias=True),
-            nn.SiLU(),
+            #  nn.SiLU(),
+            HardSwish(),
             nn.Dropout(p=ffn_dropout),
             nn.Linear(in_features=ffn_latent_dim, out_features=embed_dim, bias=True),
             nn.Dropout(p=dropout)

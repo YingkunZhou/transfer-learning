@@ -12,6 +12,7 @@ from torch.nn import functional as F
 
 from transformer import TransformerEncoder
 from model_config import get_config
+from activations import HardSwish
 
 
 def make_divisible(
@@ -107,7 +108,8 @@ class ConvLayer(nn.Module):
             block.add_module(name="norm", module=norm_layer)
 
         if use_act:
-            act_layer = nn.SiLU()
+            #  act_layer = nn.SiLU()
+            act_layer = HardSwish()
             block.add_module(name="act", module=act_layer)
 
         self.block = block
