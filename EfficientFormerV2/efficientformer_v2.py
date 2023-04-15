@@ -14,6 +14,7 @@ from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.models.layers import DropPath, trunc_normal_
 from timm.models.registry import register_model
 from timm.layers.helpers import to_2tuple
+from activations import HardSwish
 
 EfficientFormer_width = {
     'L': [40, 80, 192, 384],  # 26m 83.3% 6attn
@@ -491,7 +492,7 @@ class EfficientFormerV2(nn.Module):
     def __init__(self, layers, embed_dims=None,
                  mlp_ratios=4, downsamples=None,
                  pool_size=3,
-                 norm_layer=nn.BatchNorm2d, act_layer=nn.GELU,
+                 norm_layer=nn.BatchNorm2d, act_layer=HardSwish,
                  num_classes=1000,
                  down_patch_size=3, down_stride=2, down_pad=1,
                  drop_rate=0., drop_path_rate=0.,
@@ -500,7 +501,7 @@ class EfficientFormerV2(nn.Module):
                  init_cfg=None,
                  pretrained=None,
                  vit_num=0,
-                 distillation=True,
+                 distillation=False,
                  resolution=224,
                  e_ratios=expansion_ratios_L,
                  **kwargs):
