@@ -7,10 +7,10 @@ if __name__ == '__main__':
     num_classes = int(sys.argv[1])
     if num_classes == 5:
         weights = "weights/best_model-hardswish.pth"
-        labels = "labels/flowers.txt"
+        labels = "../labels/flowers.txt"
     else:
         weights = "weights/mobilevit_xxs.pt"
-        labels = "labels/imagenet-labels.txt"
+        labels = "../labels/imagenet-labels.txt"
 
     factor = ''
     if len(sys.argv) == 3:
@@ -20,7 +20,7 @@ if __name__ == '__main__':
     create_model = getattr(mobilevit, name)
 
     device = torch.device("cpu")
-    model = create_model(num_classes=num_classes, coreml_compatible=True).to(device)
+    model = create_model(num_classes=num_classes, coreml_compatible=False).to(device)
     model.load_state_dict(torch.load(weights, map_location=device))
     model.eval()
 
