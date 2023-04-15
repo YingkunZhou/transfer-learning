@@ -69,7 +69,7 @@ def main(args):
         weights_dict = weights_dict["model"] if "model" in weights_dict else weights_dict
         # 删除有关分类类别的权重
         for k in list(weights_dict.keys()):
-            if "classifier" in k:
+            if "head" in k:
                 del weights_dict[k]
         print(model.load_state_dict(weights_dict, strict=False))
 
