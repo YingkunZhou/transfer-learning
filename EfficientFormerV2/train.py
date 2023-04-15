@@ -31,7 +31,7 @@ def main(args):
         "val": transforms.Compose([transforms.Resize(img_size),
                                    transforms.CenterCrop(img_size),
                                    transforms.ToTensor(),
-                                   transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)]),
+                                   transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)])}
 
     # 实例化训练数据集
     train_dataset = MyDataSet(images_path=train_images_path,
