@@ -7,7 +7,7 @@ from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 if __name__ == '__main__':
     num_classes = int(sys.argv[1])
     if num_classes == 5:
-        weights = "weights/best_model-relu.pth"
+        weights = "weights/best_model-gelu.pth"
         labels = "../labels/flowers.txt"
     else:
         weights = "weights/mobilevit_xxs.pt"
