@@ -1,21 +1,17 @@
-import sys
+import argparse
 import coremltools as ct
 import torch
 import model as efficientformerv2
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 
-if __name__ == '__main__':
-    num_classes = int(sys.argv[1])
-    if num_classes == 5:
-        weights = "weights/best_model-gelu.pth"
-        labels = "../labels/flowers.txt"
-    else:
-        weights = "weights/mobilevit_xxs.pt"
-        labels = "../labels/imagenet-labels.txt"
+def main(args):
+    num_classes = args.num_classes
+    weights = args.weights
+    factor = args.factor
+    coreml = args.coreml
+    labels = args.label_path
 
-    factor = sys.argv[2]
-    name = "efficientformerv2_" + factor 
-
+    name = "efficientformerv2_" + factor
     create_model = getattr(efficientformerv2, name)
 
     device = torch.device("cpu")
@@ -34,17 +30,31 @@ if __name__ == '__main__':
                                shape=inputs.shape,
                                scale=scale/255,
                                bias=bias)
-    mlmodel = ct.convert(
-        traced_model,
-        inputs=[image_input],
-        classifier_config=ct.ClassifierConfig(labels)
-    )
-    mlmodel.save("models/%s-%d.mlmodel" % (name, num_classes))
 
-    mlmodel = ct.convert(
-        traced_model,
-        convert_to="mlprogram",
-        inputs=[image_input],
-        classifier_config=ct.ClassifierConfig(labels)
-    )
-    mlmodel.save("models/%s-%d.mlpackage" % (name, num_classes))
+    if coreml == 'all' or coreml == 'model':
+        mlmodel = ct.convert(
+            traced_model,
+            inputs=[image_input],
+            classifier_config=ct.ClassifierConfig(labels)
+        )
+        mlmodel.save("models/%s-%d.mlmodel" % (name, num_classes))
+
+    if coreml == 'all' or coreml == 'package':
+        mlmodel = ct.convert(
+            traced_model,
+            convert_to="mlprogram",
+            inputs=[image_input],
+            classifier_config=ct.ClassifierConfig(labels)
+        )
+        mlmodel.save("models/%s-%d.mlpackage" % (name, num_classes))
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--num_classes', type=int, default=5)
+    parser.add_argument('--factor', type=str, default='s0')
+    parser.add_argument('--weights', type=str, default="./weights/best_model-gelu.pth")
+    parser.add_argument('--label_path', type=str, default="../labels/flowers.txt")
+    parser.add_argument('--coreml', type=str, default='all')
+
+    opt = parser.parse_args()
+    main(opt)

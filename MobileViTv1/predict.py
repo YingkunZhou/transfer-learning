@@ -1,26 +1,32 @@
 import os
 import json
+import argparse
 
 import torch
 from PIL import Image
 from torchvision import transforms
 import matplotlib.pyplot as plt
 
-from model import mobile_vit_xx_small as create_model
+import model as mobilevit
 
 
-def main():
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+def main(args):
+    num_classes = args.num_classes
+    weights = args.weights
+    json_path = args.json_path
+    factor = args.factor
 
-    img_size = 224
+    #  device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
+
+    img_size = 256
     data_transform = transforms.Compose(
-        [transforms.Resize(int(img_size * 1.14)),
+        [transforms.Resize(img_size),
          transforms.CenterCrop(img_size),
-         transforms.ToTensor(),
-         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
+         transforms.ToTensor()])
 
     # load image
-    img_path = "../tulip.jpg"
+    img_path = "../daisy.jpg"
     assert os.path.exists(img_path), "file: '{}' dose not exist.".format(img_path)
     img = Image.open(img_path)
     plt.imshow(img)
@@ -37,25 +43,33 @@ def main():
         class_indict = json.load(f)
 
     # create model
-    model = create_model(num_classes=5).to(device)
+    name = "mobile_vit_" + factor
+    create_model = getattr(mobilevit, name)
+    model = create_model(num_classes=num_classes).to(device)
     # load model weights
-    model_weight_path = "./weights/best_model.pth"
-    model.load_state_dict(torch.load(model_weight_path, map_location=device))
+    model.load_state_dict(torch.load(weights, map_location=device))
     model.eval()
     with torch.no_grad():
         # predict class
-        output = torch.squeeze(model(img.to(device))).cpu()
-        predict = torch.softmax(output, dim=0)
+        predict = torch.squeeze(model(img.to(device))).cpu()
+        #  predict = torch.softmax(predict, dim=0)
         predict_cla = torch.argmax(predict).numpy()
 
-    print_res = "class: {}   prob: {:.3}".format(class_indict[str(predict_cla)],
+    print_res = "class: {}   prob: {:.11}".format(class_indict[str(predict_cla)],
                                                  predict[predict_cla].numpy())
     plt.title(print_res)
     for i in range(len(predict)):
-        print("class: {:10}   prob: {:.3}".format(class_indict[str(i)],
+        print("class: {:10}   prob: {:.11}".format(class_indict[str(i)],
                                                   predict[i].numpy()))
     plt.show()
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--num_classes', type=int, default=5)
+    parser.add_argument('--factor', type=str, default='xx_small')
+    parser.add_argument('--weights', type=str, default="./weights/best_model-silu.pth")
+    parser.add_argument('--json_path', type=str, default="../labels/flowers_indices.json")
+
+    opt = parser.parse_args()
+    main(opt)
