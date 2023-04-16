@@ -109,6 +109,9 @@ class ConvLayer(nn.Module):
 
         if use_act:
             act_layer = nn.SiLU()
+            # act_layer = nn.ReLU()
+            # act_layer = nn.GELU()
+            # act_layer = nn.Hardswish()
             # act_layer = HardSwish()
             block.add_module(name="act", module=act_layer)
 

@@ -6,7 +6,7 @@ from PIL import Image
 from torchvision import transforms
 import matplotlib.pyplot as plt
 from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
-from efficientformer_v2 import efficientformerv2_s0 as create_model
+from model import efficientformerv2_s0 as create_model
 
 
 def main():

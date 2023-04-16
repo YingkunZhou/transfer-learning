@@ -7,7 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 
 from my_dataset import MyDataSet
-import efficientformer_v2
+import model as efficientformerv2
 from utils import read_split_data, train_one_epoch, evaluate
 from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 
@@ -60,7 +60,7 @@ def main(args):
                                              num_workers=nw,
                                              collate_fn=val_dataset.collate_fn)
     
-    create_model = getattr(efficientformer_v2, "efficientformerv2_"+args.factor)
+    create_model = getattr(efficientformerv2, "efficientformerv2_"+args.factor)
     model = create_model(num_classes=args.num_classes).to(device)
 
     if args.weights != "":
