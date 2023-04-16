@@ -341,7 +341,7 @@ class TransformerEncoder(nn.Module):
             nn.SiLU(),
             # nn.ReLU(),
             # nn.ReLU(),
-            # nn.HardSwish(),
+            # nn.Hardswish(),
             # HardSwish(),
             nn.Dropout(p=ffn_dropout),
             nn.Linear(in_features=ffn_latent_dim, out_features=embed_dim, bias=True),

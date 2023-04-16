@@ -495,7 +495,7 @@ class EfficientFormerV2(nn.Module):
                  norm_layer=nn.BatchNorm2d,
                  #  act_layer=nn.GELU,
                  #  act_layer=nn.ReLU,
-                 act_layer=nn.HardSwish,
+                 act_layer=nn.Hardswish,
                  #  act_layer=HardSwish,
                  num_classes=1000,
                  down_patch_size=3, down_stride=2, down_pad=1,
