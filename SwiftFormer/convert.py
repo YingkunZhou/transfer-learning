@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import model as SwiftFormer
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
-from activations import HardSwish
+from timm.layers.activations import *
 
 def main(args):
     num_classes = args.num_classes

@@ -9,7 +9,7 @@ from torchvision import transforms
 import matplotlib.pyplot as plt
 from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 import model as SwiftFormer
-from activations import HardSwish
+from timm.layers.activations import *
 
 
 def main(args):
