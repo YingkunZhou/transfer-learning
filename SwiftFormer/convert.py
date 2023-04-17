@@ -26,7 +26,12 @@ def main(args):
     elif activation == 'hardswish':
         act_layer = HardSwish
     model = create_model(num_classes=args.num_classes, act_layer=act_layer).to(device)
-    model.load_state_dict(torch.load(weights, map_location=device))
+    weights_dict = torch.load(weights, map_location=device)
+    weights_dict = weights_dict["model"] if "model" in weights_dict else weights_dict
+    for k in list(weights_dict.keys()):
+        if "dist_head" in k:
+            del weights_dict[k]
+    model.load_state_dict(weights_dict)
     model.eval()
 
     size = 224

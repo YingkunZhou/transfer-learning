@@ -60,7 +60,12 @@ def main(args):
         act_layer = HardSwish
     model = create_model(num_classes=num_classes, act_layer=act_layer).to(device)
     # load model weights
-    model.load_state_dict(torch.load(weights, map_location=device))
+    weights_dict = torch.load(weights, map_location=device)
+    weights_dict = weights_dict["model"] if "model" in weights_dict else weights_dict
+    for k in list(weights_dict.keys()):
+        if "dist_head" in k:
+            del weights_dict[k]
+    model.load_state_dict(weights_dict)
     model.eval()
     with torch.no_grad():
         # predict class

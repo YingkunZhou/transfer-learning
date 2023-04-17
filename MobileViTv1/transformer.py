@@ -340,7 +340,7 @@ class TransformerEncoder(nn.Module):
             nn.Linear(in_features=embed_dim, out_features=ffn_latent_dim, bias=True),
             nn.SiLU(),
             # nn.ReLU(),
-            # nn.ReLU(),
+            # nn.GELU(),
             # nn.Hardswish(),
             # HardSwish(),
             nn.Dropout(p=ffn_dropout),
