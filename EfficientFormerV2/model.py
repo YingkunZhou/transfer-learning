@@ -14,7 +14,6 @@ from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.models.layers import DropPath, trunc_normal_
 from timm.models.registry import register_model
 from timm.layers.helpers import to_2tuple
-from activations import HardSwish
 
 EfficientFormer_width = {
     'L': [40, 80, 192, 384],  # 26m 83.3% 6attn
@@ -300,7 +299,7 @@ class Embedding(nn.Module):
         self.light = light
         self.asub = asub
 
-        if self.light:
+        if self.light: #TODO: oh ho
             self.new_proj = nn.Sequential(
                 nn.Conv2d(in_chans, in_chans, kernel_size=3, stride=2, padding=1, groups=in_chans),
                 nn.BatchNorm2d(in_chans),
@@ -494,9 +493,6 @@ class EfficientFormerV2(nn.Module):
                  pool_size=3,
                  norm_layer=nn.BatchNorm2d,
                  act_layer=nn.GELU,
-                 #  act_layer=nn.ReLU,
-                 #  act_layer=nn.Hardswish,
-                 #  act_layer=HardSwish,
                  num_classes=1000,
                  down_patch_size=3, down_stride=2, down_pad=1,
                  drop_rate=0., drop_path_rate=0.,

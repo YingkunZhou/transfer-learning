@@ -6,8 +6,9 @@ import torch
 from PIL import Image
 from torchvision import transforms
 import matplotlib.pyplot as plt
-
-import model as mobilevit
+from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
+import model as SwiftFormer
+from activations import HardSwish
 
 
 def main(args):
@@ -19,11 +20,15 @@ def main(args):
     #  device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     device = torch.device("cpu")
 
-    img_size = 256
+    img_size = 224
+    # to make image preprocessing as same as coreml
+    std = sum(IMAGENET_DEFAULT_STD) / len(IMAGENET_DEFAULT_STD)
+    mean = [i/j*std for i, j in zip(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)]
     data_transform = transforms.Compose(
         [transforms.Resize(img_size),
          transforms.CenterCrop(img_size),
-         transforms.ToTensor()])
+         transforms.ToTensor(),
+         transforms.Normalize(mean, std)])
 
     # load image
     img_path = "../daisy.jpg"
@@ -36,16 +41,23 @@ def main(args):
     img = torch.unsqueeze(img, dim=0)
 
     # read class_indict
-    json_path = './class_indices.json'
     assert os.path.exists(json_path), "file: '{}' dose not exist.".format(json_path)
 
     with open(json_path, "r") as f:
         class_indict = json.load(f)
 
     # create model
-    name = "mobile_vit_" + factor
-    create_model = getattr(mobilevit, name)
-    model = create_model(num_classes=num_classes).to(device)
+    name = "SwiftFormer_" + factor
+    create_model = getattr(SwiftFormer, name)
+    activation = args.activation
+    act_layer = nn.GELU
+    if activation == 'relu':
+        act_layer = nn.ReLU
+    elif activation == 'nn.hardswish':
+        act_layer = nn.Hardswish
+    elif activation == 'hardswish':
+        act_layer = HardSwish
+    model = create_model(num_classes=args.num_classes, act_layer=act_layer).to(device)
     # load model weights
     model.load_state_dict(torch.load(weights, map_location=device))
     model.eval()
@@ -67,8 +79,9 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_classes', type=int, default=5)
-    parser.add_argument('--factor', type=str, default='xx_small')
-    parser.add_argument('--weights', type=str, default="./weights/xxs.best_model-silu.pth")
+    parser.add_argument('--factor', type=str, default='XS')
+    parser.add_argument('--weights', type=str, default="./weights/XS.best_model-gelu.pth")
+    parser.add_argument('--activation', type=str, default='gelu')
     parser.add_argument('--json_path', type=str, default="../labels/flowers_indices.json")
 
     opt = parser.parse_args()

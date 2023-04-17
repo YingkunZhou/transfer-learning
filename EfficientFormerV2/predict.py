@@ -8,6 +8,7 @@ from torchvision import transforms
 import matplotlib.pyplot as plt
 from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 import model as efficientformerv2
+from activations import HardSwish
 
 
 def main(args):
@@ -48,7 +49,15 @@ def main(args):
     # create model
     name = "efficientformerv2_" + factor
     create_model = getattr(efficientformerv2, name)
-    model = create_model(num_classes=num_classes).to(device)
+    activation = args.activation
+    act_layer = nn.GELU
+    if activation == 'relu':
+        act_layer = nn.ReLU
+    elif activation == 'nn.hardswish':
+        act_layer = nn.Hardswish
+    elif activation == 'hardswish':
+        act_layer = HardSwish
+    model = create_model(num_classes=num_classes, act_layer=act_layer).to(device)
     # load model weights
     model.load_state_dict(torch.load(weights, map_location=device))
     model.eval()
@@ -71,7 +80,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_classes', type=int, default=5)
     parser.add_argument('--factor', type=str, default='s0')
-    parser.add_argument('--weights', type=str, default="./weights/best_model-gelu.pth")
+    parser.add_argument('--weights', type=str, default="./weights/s0.best_model-gelu.pth")
+    parser.add_argument('--activation', type=str, default='gelu')
     parser.add_argument('--json_path', type=str, default="../labels/flowers_indices.json")
 
     opt = parser.parse_args()

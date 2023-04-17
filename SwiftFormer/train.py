@@ -7,7 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 
 from my_dataset import MyDataSet
-import model as efficientformerv2
+import model as SwiftFormer
 from utils import read_split_data, train_one_epoch, evaluate
 from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from activations import HardSwish
@@ -61,7 +61,7 @@ def main(args):
                                              num_workers=nw,
                                              collate_fn=val_dataset.collate_fn)
     
-    create_model = getattr(efficientformerv2, "efficientformerv2_"+args.factor)
+    create_model = getattr(SwiftFormer, "SwiftFormer_"+args.factor)
     activation = args.activation
     act_layer = nn.GELU
     if activation == 'relu':
@@ -70,7 +70,6 @@ def main(args):
         act_layer = nn.Hardswish
     elif activation == 'hardswish':
         act_layer = HardSwish
-
     model = create_model(num_classes=args.num_classes, act_layer=act_layer).to(device)
 
     if args.weights != "":
@@ -129,7 +128,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--lr', type=float, default=0.0002)
-    parser.add_argument('--factor', type=str, default='s0')
+    parser.add_argument('--factor', type=str, default='XS')
     parser.add_argument('--activation', type=str, default='gelu')
 
     # 数据集所在根目录
@@ -138,7 +137,7 @@ if __name__ == '__main__':
                         default="../flower_photos")
 
     # 预训练权重路径，如果不想载入就设置为空字符
-    parser.add_argument('--weights', type=str, default='./weights/eformer_s0_450.pth',
+    parser.add_argument('--weights', type=str, default='./weights/SwiftFormer_XS_ckpt.pth',
                         help='initial weights path')
     # 是否冻结权重
     parser.add_argument('--freeze-layers', type=bool, default=False)
