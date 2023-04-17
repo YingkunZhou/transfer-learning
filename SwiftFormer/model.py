@@ -199,7 +199,7 @@ class SwiftFormerLocalRepresentation(nn.Module):
         self.dwconv = nn.Conv2d(dim, dim, kernel_size=kernel_size, padding=kernel_size // 2, groups=dim)
         self.norm = nn.BatchNorm2d(dim)
         self.pwconv1 = nn.Conv2d(dim, dim, kernel_size=1)
-        self.act = act_layer
+        self.act = act_layer()
         self.pwconv2 = nn.Conv2d(dim, dim, kernel_size=1)
         self.drop_path = DropPath(drop_path) if drop_path > 0. \
             else nn.Identity()
