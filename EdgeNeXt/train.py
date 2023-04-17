@@ -11,7 +11,7 @@ from my_dataset import MyDataSet
 import model as edgenext
 from utils import read_split_data, train_one_epoch, evaluate
 from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
-from activations import HardSwish
+from timm.layers.activations import *
 
 
 def main(args):
