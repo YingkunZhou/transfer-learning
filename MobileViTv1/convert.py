@@ -50,7 +50,7 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default="./weights/xxs.best_model-silu.pth")
     parser.add_argument('--label_path', type=str, default="../labels/flowers.txt")
     parser.add_argument('--coreml', type=str, default='all')
-    parser.add_argument('--coreml_compatible', type=bool, default=True)
+    parser.add_argument('--coreml_compatible', action=argparse.BooleanOptionalAction)
 
     opt = parser.parse_args()
     main(opt)
