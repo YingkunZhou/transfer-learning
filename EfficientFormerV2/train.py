@@ -5,6 +5,7 @@ import torch
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
+import torch.nn as nn
 
 from my_dataset import MyDataSet
 import model as efficientformerv2

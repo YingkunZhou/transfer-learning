@@ -3,6 +3,7 @@ import json
 import argparse
 
 import torch
+import torch.nn as nn
 from PIL import Image
 from torchvision import transforms
 import matplotlib.pyplot as plt
