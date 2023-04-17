@@ -420,6 +420,9 @@ class MobileViT(nn.Module):
     ):
         super().__init__()
 
+        self.act_layer = act_layer
+        self.coreml_compatible = coreml_compatible
+
         image_channels = 3
         out_channels = 16
 
@@ -431,16 +434,11 @@ class MobileViT(nn.Module):
             stride=2
         )
 
-        self.layer_1, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer1"],
-                                                      act_layer=act_layer, coreml_compatible=coreml_compatible)
-        self.layer_2, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer2"],
-                                                      act_layer=act_layer, coreml_compatible=coreml_compatible)
-        self.layer_3, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer3"],
-                                                      act_layer=act_layer, coreml_compatible=coreml_compatible)
-        self.layer_4, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer4"],
-                                                      act_layer=act_layer, coreml_compatible=coreml_compatible)
-        self.layer_5, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer5"],
-                                                      act_layer=act_layer, coreml_compatible=coreml_compatible)
+        self.layer_1, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer1"])
+        self.layer_2, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer2"])
+        self.layer_3, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer3"])
+        self.layer_4, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer4"])
+        self.layer_5, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer5"])
 
         exp_channels = min(model_cfg["last_layer_exp_factor"] * out_channels, 960)
         self.conv_1x1_exp = ConvLayer(
@@ -460,16 +458,18 @@ class MobileViT(nn.Module):
         # weight init
         self.apply(self.init_parameters)
 
-    def _make_layer(self, input_channel, cfg: Dict, act_layer, coreml_compatible) -> Tuple[nn.Sequential, int]:
+    def _make_layer(self, input_channel, cfg: Dict) -> Tuple[nn.Sequential, int]:
         block_type = cfg.get("block_type", "mobilevit")
         if block_type.lower() == "mobilevit":
             return self._make_mit_layer(input_channel=input_channel, cfg=cfg,
-                                        act_layer=act_layer, coreml_compatible=coreml_compatible)
+                                        act_layer=self.act_layer,
+                                        coreml_compatible=self.coreml_compatible)
         else:
-            return self._make_mobilenet_layer(input_channel=input_channel, cfg=cfg, act_layer=act_layer)
+            return self._make_mobilenet_layer(input_channel=input_channel, cfg=cfg,
+                                              act_layer=self.act_layer)
 
     @staticmethod
-    def _make_mobilenet_layer(input_channel: int, act_layer, cfg: Dict) -> Tuple[nn.Sequential, int]:
+    def _make_mobilenet_layer(input_channel: int, cfg: Dict, act_layer) -> Tuple[nn.Sequential, int]:
         output_channels = cfg.get("out_channels")
         num_blocks = cfg.get("num_blocks", 2)
         expand_ratio = cfg.get("expand_ratio", 4)
@@ -491,7 +491,7 @@ class MobileViT(nn.Module):
         return nn.Sequential(*block), input_channel
 
     @staticmethod
-    def _make_mit_layer(input_channel: int, cfg: Dict, act_layer, coreml_compatible: bool) -> [nn.Sequential, int]:
+    def _make_mit_layer(input_channel: int, cfg: Dict, act_layer, coreml_compatible) -> [nn.Sequential, int]:
         stride = cfg.get("stride", 1)
         block = []
 
@@ -567,25 +567,34 @@ class MobileViT(nn.Module):
         return x
 
 
-def mobile_vit_xx_small(num_classes: int = 1000, act_layer=nn.SiLU, coreml_compatible: bool = False):
+def mobile_vit_xx_small(num_classes=1000, act_layer=nn.SiLU, coreml_compatible=False):
     # pretrain weight link
     # https://docs-assets.developer.apple.com/ml-research/models/cvnets/classification/mobilevit_xxs.pt
     config = get_config("xx_small")
-    m = MobileViT(config, num_classes=num_classes, act_layer=act_layer, coreml_compatible=coreml_compatible)
+    m = MobileViT(config,
+                  num_classes=num_classes,
+                  act_layer=act_layer,
+                  coreml_compatible=coreml_compatible)
     return m
 
 
-def mobile_vit_x_small(num_classes: int = 1000, act_layer=nn.SiLU, coreml_compatible: bool = False):
+def mobile_vit_x_small(num_classes=1000, act_layer=nn.SiLU, coreml_compatible=False):
     # pretrain weight link
     # https://docs-assets.developer.apple.com/ml-research/models/cvnets/classification/mobilevit_xs.pt
     config = get_config("x_small")
-    m = MobileViT(config, num_classes=num_classes, act_layer=act_layer, coreml_compatible=coreml_compatible)
+    m = MobileViT(config,
+                  num_classes=num_classes,
+                  act_layer=act_layer,
+                  coreml_compatible=coreml_compatible)
     return m
 
 
-def mobile_vit_small(num_classes: int = 1000, act_layer=nn.SiLU, coreml_compatible: bool = False):
+def mobile_vit_small(num_classes=1000, act_layer=nn.SiLU, coreml_compatible=False):
     # pretrain weight link
     # https://docs-assets.developer.apple.com/ml-research/models/cvnets/classification/mobilevit_s.pt
     config = get_config("small")
-    m = MobileViT(config, num_classes=num_classes, act_layer=act_layer, coreml_compatible=coreml_compatible)
+    m = MobileViT(config,
+                  num_classes=num_classes,
+                  act_layer=act_layer,
+                  coreml_compatible=coreml_compatible)
     return m
