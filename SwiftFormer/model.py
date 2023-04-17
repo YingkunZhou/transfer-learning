@@ -312,7 +312,7 @@ class SwiftFormer(nn.Module):
                  init_cfg=None,
                  pretrained=None,
                  vit_num=1,
-                 distillation=True,
+                 distillation=False,
                  **kwargs):
         super().__init__()
 
