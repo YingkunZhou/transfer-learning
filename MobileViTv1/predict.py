@@ -3,9 +3,11 @@ import json
 import argparse
 
 import torch
+import torch.nn as nn
 from PIL import Image
 from torchvision import transforms
 import matplotlib.pyplot as plt
+from timm.layers.activations import *
 
 import model as mobilevit
 
@@ -15,6 +17,7 @@ def main(args):
     weights = args.weights
     json_path = args.json_path
     factor = args.factor
+    coreml_compatible = args.coreml_compatible
 
     #  device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     device = torch.device("cpu")
@@ -45,7 +48,15 @@ def main(args):
     # create model
     name = "mobile_vit_" + factor
     create_model = getattr(mobilevit, name)
-    model = create_model(num_classes=num_classes).to(device)
+    activation = args.activation
+    act_layer = nn.SiLU
+    if activation == 'relu':
+        act_layer = nn.ReLU
+    elif activation == 'nn.hardswish':
+        act_layer = nn.Hardswish
+    elif activation == 'hardswish':
+        act_layer = HardSwish
+    model = create_model(num_classes=args.num_classes, act_layer=act_layer, coreml_compatible=coreml_compatible).to(device)
     # load model weights
     model.load_state_dict(torch.load(weights, map_location=device))
     model.eval()
@@ -68,8 +79,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_classes', type=int, default=5)
     parser.add_argument('--factor', type=str, default='xx_small')
+    parser.add_argument('--activation', type=str, default='silu')
     parser.add_argument('--weights', type=str, default="./weights/xxs.best_model-silu.pth")
     parser.add_argument('--json_path', type=str, default="../labels/flowers_indices.json")
+    parser.add_argument('--coreml_compatible', action=argparse.BooleanOptionalAction)
 
     opt = parser.parse_args()
     main(opt)

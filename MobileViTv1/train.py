@@ -2,9 +2,11 @@ import os
 import argparse
 
 import torch
+import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
+from timm.layers.activations import *
 
 from my_dataset import MyDataSet
 import model as mobilevit
@@ -58,7 +60,15 @@ def main(args):
                                              collate_fn=val_dataset.collate_fn)
     
     create_model = getattr(mobilevit, "mobile_vit_"+args.factor)
-    model = create_model(num_classes=args.num_classes).to(device)
+    activation = args.activation
+    act_layer = nn.SiLU
+    if activation == 'relu':
+        act_layer = nn.ReLU
+    elif activation == 'nn.hardswish':
+        act_layer = nn.Hardswish
+    elif activation == 'hardswish':
+        act_layer = HardSwish
+    model = create_model(num_classes=args.num_classes, act_layer=act_layer).to(device)
 
     if args.weights != "":
         assert os.path.exists(args.weights), "weights file: '{}' not exist.".format(args.weights)
@@ -117,6 +127,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--lr', type=float, default=0.0002)
     parser.add_argument('--factor', type=str, default='xx_small')
+    parser.add_argument('--activation', type=str, default='silu')
 
     # 数据集所在根目录
     # https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz

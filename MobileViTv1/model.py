@@ -12,7 +12,7 @@ from torch.nn import functional as F
 
 from transformer import TransformerEncoder
 from model_config import get_config
-from activations import HardSwish
+from timm.layers.activations import *
 
 
 def make_divisible(
@@ -72,6 +72,7 @@ class ConvLayer(nn.Module):
         bias: Optional[bool] = False,
         use_norm: Optional[bool] = True,
         use_act: Optional[bool] = True,
+        act_layer = nn.SiLU
     ) -> None:
         super().__init__()
 
@@ -108,12 +109,7 @@ class ConvLayer(nn.Module):
             block.add_module(name="norm", module=norm_layer)
 
         if use_act:
-            act_layer = nn.SiLU()
-            # act_layer = nn.ReLU()
-            # act_layer = nn.GELU()
-            # act_layer = nn.Hardswish()
-            # act_layer = HardSwish()
-            block.add_module(name="act", module=act_layer)
+            block.add_module(name="act", module=act_layer())
 
         self.block = block
 
@@ -147,6 +143,7 @@ class InvertedResidual(nn.Module):
         out_channels: int,
         stride: int,
         expand_ratio: Union[int, float],
+        act_layer=nn.SiLU,
         skip_connection: Optional[bool] = True,
     ) -> None:
         assert stride in [1, 2]
@@ -161,6 +158,7 @@ class InvertedResidual(nn.Module):
                 module=ConvLayer(
                     in_channels=in_channels,
                     out_channels=hidden_dim,
+                    act_layer=act_layer,
                     kernel_size=1
                 ),
             )
@@ -172,6 +170,7 @@ class InvertedResidual(nn.Module):
                 out_channels=hidden_dim,
                 stride=stride,
                 kernel_size=3,
+                act_layer=act_layer,
                 groups=hidden_dim
             ),
         )
@@ -237,6 +236,7 @@ class MobileViTBlock(nn.Module):
         patch_h: int = 8,
         patch_w: int = 8,
         conv_ksize: Optional[int] = 3,
+        act_layer=nn.SiLU,
         coreml_compatible:int = False,
         *args,
         **kwargs
@@ -247,6 +247,7 @@ class MobileViTBlock(nn.Module):
             in_channels=in_channels,
             out_channels=in_channels,
             kernel_size=conv_ksize,
+            act_layer=act_layer,
             stride=1
         )
         conv_1x1_in = ConvLayer(
@@ -262,12 +263,14 @@ class MobileViTBlock(nn.Module):
             in_channels=transformer_dim,
             out_channels=in_channels,
             kernel_size=1,
+            act_layer=act_layer,
             stride=1
         )
         conv_3x3_out = ConvLayer(
             in_channels=2 * in_channels,
             out_channels=in_channels,
             kernel_size=conv_ksize,
+            act_layer=act_layer,
             stride=1
         )
 
@@ -286,6 +289,7 @@ class MobileViTBlock(nn.Module):
                 num_heads=num_heads,
                 attn_dropout=attn_dropout,
                 dropout=dropout,
+                act_layer=act_layer,
                 ffn_dropout=ffn_dropout
             )
             for _ in range(n_transformer_blocks)
@@ -407,7 +411,13 @@ class MobileViT(nn.Module):
     """
     This class implements the `MobileViT architecture <https://arxiv.org/abs/2110.02178?context=cs.LG>`_
     """
-    def __init__(self, model_cfg: Dict, num_classes: int = 1000, coreml_compatible: bool = False):
+    def __init__(
+            self,
+            model_cfg: Dict,
+            num_classes: int = 1000,
+            act_layer=nn.SiLU,
+            coreml_compatible: bool = False
+    ):
         super().__init__()
 
         image_channels = 3
@@ -417,19 +427,26 @@ class MobileViT(nn.Module):
             in_channels=image_channels,
             out_channels=out_channels,
             kernel_size=3,
+            act_layer=act_layer,
             stride=2
         )
 
-        self.layer_1, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer1"], coreml_compatible=coreml_compatible)
-        self.layer_2, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer2"], coreml_compatible=coreml_compatible)
-        self.layer_3, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer3"], coreml_compatible=coreml_compatible)
-        self.layer_4, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer4"], coreml_compatible=coreml_compatible)
-        self.layer_5, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer5"], coreml_compatible=coreml_compatible)
+        self.layer_1, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer1"],
+                                                      act_layer=act_layer, coreml_compatible=coreml_compatible)
+        self.layer_2, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer2"],
+                                                      act_layer=act_layer, coreml_compatible=coreml_compatible)
+        self.layer_3, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer3"],
+                                                      act_layer=act_layer, coreml_compatible=coreml_compatible)
+        self.layer_4, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer4"],
+                                                      act_layer=act_layer, coreml_compatible=coreml_compatible)
+        self.layer_5, out_channels = self._make_layer(input_channel=out_channels, cfg=model_cfg["layer5"],
+                                                      act_layer=act_layer, coreml_compatible=coreml_compatible)
 
         exp_channels = min(model_cfg["last_layer_exp_factor"] * out_channels, 960)
         self.conv_1x1_exp = ConvLayer(
             in_channels=out_channels,
             out_channels=exp_channels,
+            act_layer=act_layer,
             kernel_size=1
         )
 
@@ -443,15 +460,16 @@ class MobileViT(nn.Module):
         # weight init
         self.apply(self.init_parameters)
 
-    def _make_layer(self, input_channel, cfg: Dict, coreml_compatible) -> Tuple[nn.Sequential, int]:
+    def _make_layer(self, input_channel, cfg: Dict, act_layer, coreml_compatible) -> Tuple[nn.Sequential, int]:
         block_type = cfg.get("block_type", "mobilevit")
         if block_type.lower() == "mobilevit":
-            return self._make_mit_layer(input_channel=input_channel, cfg=cfg, coreml_compatible=coreml_compatible)
+            return self._make_mit_layer(input_channel=input_channel, cfg=cfg,
+                                        act_layer=act_layer, coreml_compatible=coreml_compatible)
         else:
-            return self._make_mobilenet_layer(input_channel=input_channel, cfg=cfg)
+            return self._make_mobilenet_layer(input_channel=input_channel, cfg=cfg, act_layer=act_layer)
 
     @staticmethod
-    def _make_mobilenet_layer(input_channel: int, cfg: Dict) -> Tuple[nn.Sequential, int]:
+    def _make_mobilenet_layer(input_channel: int, act_layer, cfg: Dict) -> Tuple[nn.Sequential, int]:
         output_channels = cfg.get("out_channels")
         num_blocks = cfg.get("num_blocks", 2)
         expand_ratio = cfg.get("expand_ratio", 4)
@@ -464,6 +482,7 @@ class MobileViT(nn.Module):
                 in_channels=input_channel,
                 out_channels=output_channels,
                 stride=stride,
+                act_layer=act_layer,
                 expand_ratio=expand_ratio
             )
             block.append(layer)
@@ -472,7 +491,7 @@ class MobileViT(nn.Module):
         return nn.Sequential(*block), input_channel
 
     @staticmethod
-    def _make_mit_layer(input_channel: int, cfg: Dict, coreml_compatible: bool) -> [nn.Sequential, int]:
+    def _make_mit_layer(input_channel: int, cfg: Dict, act_layer, coreml_compatible: bool) -> [nn.Sequential, int]:
         stride = cfg.get("stride", 1)
         block = []
 
@@ -481,6 +500,7 @@ class MobileViT(nn.Module):
                 in_channels=input_channel,
                 out_channels=cfg.get("out_channels"),
                 stride=stride,
+                act_layer=act_layer,
                 expand_ratio=cfg.get("mv_expand_ratio", 4)
             )
 
@@ -508,6 +528,7 @@ class MobileViT(nn.Module):
             attn_dropout=cfg.get("attn_dropout", 0.1),
             head_dim=head_dim,
             conv_ksize=3,
+            act_layer=act_layer,
             coreml_compatible=coreml_compatible,
         ))
 
@@ -546,25 +567,25 @@ class MobileViT(nn.Module):
         return x
 
 
-def mobile_vit_xx_small(num_classes: int = 1000, coreml_compatible: bool = False):
+def mobile_vit_xx_small(num_classes: int = 1000, act_layer=nn.SiLU, coreml_compatible: bool = False):
     # pretrain weight link
     # https://docs-assets.developer.apple.com/ml-research/models/cvnets/classification/mobilevit_xxs.pt
     config = get_config("xx_small")
-    m = MobileViT(config, num_classes=num_classes, coreml_compatible=coreml_compatible)
+    m = MobileViT(config, num_classes=num_classes, act_layer=act_layer, coreml_compatible=coreml_compatible)
     return m
 
 
-def mobile_vit_x_small(num_classes: int = 1000, coreml_compatible: bool = False):
+def mobile_vit_x_small(num_classes: int = 1000, act_layer=nn.SiLU, coreml_compatible: bool = False):
     # pretrain weight link
     # https://docs-assets.developer.apple.com/ml-research/models/cvnets/classification/mobilevit_xs.pt
     config = get_config("x_small")
-    m = MobileViT(config, num_classes=num_classes, coreml_compatible=coreml_compatible)
+    m = MobileViT(config, num_classes=num_classes, act_layer=act_layer, coreml_compatible=coreml_compatible)
     return m
 
 
-def mobile_vit_small(num_classes: int = 1000, coreml_compatible: bool = False):
+def mobile_vit_small(num_classes: int = 1000, act_layer=nn.SiLU, coreml_compatible: bool = False):
     # pretrain weight link
     # https://docs-assets.developer.apple.com/ml-research/models/cvnets/classification/mobilevit_s.pt
     config = get_config("small")
-    m = MobileViT(config, num_classes=num_classes, coreml_compatible=coreml_compatible)
+    m = MobileViT(config, num_classes=num_classes, act_layer=act_layer, coreml_compatible=coreml_compatible)
     return m

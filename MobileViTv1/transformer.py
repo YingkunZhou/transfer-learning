@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import functional as F
-from activations import HardSwish
+from timm.layers.activations import *
 
 
 class MultiHeadAttention(nn.Module):
@@ -316,6 +316,7 @@ class TransformerEncoder(nn.Module):
             attn_dropout: Optional[float] = 0.0,
             dropout: Optional[float] = 0.0,
             ffn_dropout: Optional[float] = 0.0,
+            act_layer = nn.SiLU,
             *args,
             **kwargs
     ) -> None:
@@ -338,11 +339,7 @@ class TransformerEncoder(nn.Module):
         self.pre_norm_ffn = nn.Sequential(
             nn.LayerNorm(embed_dim),
             nn.Linear(in_features=embed_dim, out_features=ffn_latent_dim, bias=True),
-            nn.SiLU(),
-            # nn.ReLU(),
-            # nn.GELU(),
-            # nn.Hardswish(),
-            # HardSwish(),
+            act_layer(),
             nn.Dropout(p=ffn_dropout),
             nn.Linear(in_features=ffn_latent_dim, out_features=embed_dim, bias=True),
             nn.Dropout(p=dropout)
