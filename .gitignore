@@ -132,3 +132,6 @@ dmypy.json
 *.mlpackage
 *.pt
 *.pth
+
+.idea
+flower_photos
