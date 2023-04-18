@@ -10,9 +10,10 @@ import torch.nn as nn
 from torch import Tensor
 from torch.nn import functional as F
 
-from transformer import TransformerEncoder
+from transformer import TransformerEncoder, ConvLayer
 from model_config import get_config
-from timm.layers.activations import *
+#  from cvnets.layers.normalization.layer_norm import LayerNorm
+
 
 
 def make_divisible(
@@ -37,84 +38,6 @@ def make_divisible(
     if new_v < 0.9 * v:
         new_v += divisor
     return new_v
-
-
-class ConvLayer(nn.Module):
-    """
-    Applies a 2D convolution over an input
-
-    Args:
-        in_channels (int): :math:`C_{in}` from an expected input of size :math:`(N, C_{in}, H_{in}, W_{in})`
-        out_channels (int): :math:`C_{out}` from an expected output of size :math:`(N, C_{out}, H_{out}, W_{out})`
-        kernel_size (Union[int, Tuple[int, int]]): Kernel size for convolution.
-        stride (Union[int, Tuple[int, int]]): Stride for convolution. Default: 1
-        groups (Optional[int]): Number of groups in convolution. Default: 1
-        bias (Optional[bool]): Use bias. Default: ``False``
-        use_norm (Optional[bool]): Use normalization layer after convolution. Default: ``True``
-        use_act (Optional[bool]): Use activation layer after convolution (or convolution and normalization).
-                                Default: ``True``
-
-    Shape:
-        - Input: :math:`(N, C_{in}, H_{in}, W_{in})`
-        - Output: :math:`(N, C_{out}, H_{out}, W_{out})`
-
-    .. note::
-        For depth-wise convolution, `groups=C_{in}=C_{out}`.
-    """
-
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: Union[int, Tuple[int, int]],
-        stride: Optional[Union[int, Tuple[int, int]]] = 1,
-        groups: Optional[int] = 1,
-        bias: Optional[bool] = False,
-        use_norm: Optional[bool] = True,
-        use_act: Optional[bool] = True,
-        act_layer = nn.SiLU
-    ) -> None:
-        super().__init__()
-
-        if isinstance(kernel_size, int):
-            kernel_size = (kernel_size, kernel_size)
-
-        if isinstance(stride, int):
-            stride = (stride, stride)
-
-        assert isinstance(kernel_size, Tuple)
-        assert isinstance(stride, Tuple)
-
-        padding = (
-            int((kernel_size[0] - 1) / 2),
-            int((kernel_size[1] - 1) / 2),
-        )
-
-        block = nn.Sequential()
-
-        conv_layer = nn.Conv2d(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=kernel_size,
-            stride=stride,
-            groups=groups,
-            padding=padding,
-            bias=bias
-        )
-
-        block.add_module(name="conv", module=conv_layer)
-
-        if use_norm:
-            norm_layer = nn.BatchNorm2d(num_features=out_channels, momentum=0.1)
-            block.add_module(name="norm", module=norm_layer)
-
-        if use_act:
-            block.add_module(name="act", module=act_layer())
-
-        self.block = block
-
-    def forward(self, x: Tensor) -> Tensor:
-        return self.block(x)
 
 
 class InvertedResidual(nn.Module):
@@ -237,7 +160,7 @@ class MobileViTBlock(nn.Module):
         patch_w: int = 8,
         conv_ksize: Optional[int] = 3,
         act_layer=nn.SiLU,
-        coreml_compatible:int = False,
+        coreml_compatible:bool = False,
         *args,
         **kwargs
     ) -> None:
@@ -387,23 +310,20 @@ class MobileViTBlock(nn.Module):
         return x
 
     def forward(self, x: Tensor) -> Tensor:
-        res = x
-
         fm = self.local_rep(x)
 
         # convert feature map to patches
         patches, info_dict = self.unfolding(fm)
 
         # learn global representations
-        for transformer_layer in self.global_rep:
-            patches = transformer_layer(patches)
+        patches = self.global_rep(patches)
 
         # [B x Patch x Patches x C] -> [B x C x Patches x Patch]
         fm = self.folding(x=patches, info_dict=info_dict)
 
         fm = self.conv_proj(fm)
 
-        fm = self.fusion(torch.cat((res, fm), dim=1))
+        fm = self.fusion(torch.cat((x, fm), dim=1))
         return fm
 
 
@@ -453,7 +373,9 @@ class MobileViT(nn.Module):
         self.classifier.add_module(name="flatten", module=nn.Flatten())
         if 0.0 < model_cfg["cls_dropout"] < 1.0:
             self.classifier.add_module(name="dropout", module=nn.Dropout(p=model_cfg["cls_dropout"]))
-        self.classifier.add_module(name="fc", module=nn.Linear(in_features=exp_channels, out_features=num_classes))
+        self.classifier.add_module(name="fc",
+                                   module=nn.Linear(in_features=exp_channels,
+                                                    out_features=num_classes))
 
         # weight init
         self.apply(self.init_parameters)
@@ -461,15 +383,11 @@ class MobileViT(nn.Module):
     def _make_layer(self, input_channel, cfg: Dict) -> Tuple[nn.Sequential, int]:
         block_type = cfg.get("block_type", "mobilevit")
         if block_type.lower() == "mobilevit":
-            return self._make_mit_layer(input_channel=input_channel, cfg=cfg,
-                                        act_layer=self.act_layer,
-                                        coreml_compatible=self.coreml_compatible)
+            return self._make_mit_layer(input_channel=input_channel, cfg=cfg)
         else:
-            return self._make_mobilenet_layer(input_channel=input_channel, cfg=cfg,
-                                              act_layer=self.act_layer)
+            return self._make_mobilenet_layer(input_channel=input_channel, cfg=cfg)
 
-    @staticmethod
-    def _make_mobilenet_layer(input_channel: int, cfg: Dict, act_layer) -> Tuple[nn.Sequential, int]:
+    def _make_mobilenet_layer(self, input_channel: int, cfg: Dict) -> Tuple[nn.Sequential, int]:
         output_channels = cfg.get("out_channels")
         num_blocks = cfg.get("num_blocks", 2)
         expand_ratio = cfg.get("expand_ratio", 4)
@@ -482,7 +400,7 @@ class MobileViT(nn.Module):
                 in_channels=input_channel,
                 out_channels=output_channels,
                 stride=stride,
-                act_layer=act_layer,
+                act_layer=self.act_layer,
                 expand_ratio=expand_ratio
             )
             block.append(layer)
@@ -490,8 +408,7 @@ class MobileViT(nn.Module):
 
         return nn.Sequential(*block), input_channel
 
-    @staticmethod
-    def _make_mit_layer(input_channel: int, cfg: Dict, act_layer, coreml_compatible) -> [nn.Sequential, int]:
+    def _make_mit_layer(self, input_channel: int, cfg: Dict) -> [nn.Sequential, int]:
         stride = cfg.get("stride", 1)
         block = []
 
@@ -500,7 +417,7 @@ class MobileViT(nn.Module):
                 in_channels=input_channel,
                 out_channels=cfg.get("out_channels"),
                 stride=stride,
-                act_layer=act_layer,
+                act_layer=self.act_layer,
                 expand_ratio=cfg.get("mv_expand_ratio", 4)
             )
 
@@ -528,8 +445,8 @@ class MobileViT(nn.Module):
             attn_dropout=cfg.get("attn_dropout", 0.1),
             head_dim=head_dim,
             conv_ksize=3,
-            act_layer=act_layer,
-            coreml_compatible=coreml_compatible,
+            act_layer=self.act_layer,
+            coreml_compatible=self.coreml_compatible,
         ))
 
         return nn.Sequential(*block), input_channel
@@ -568,8 +485,6 @@ class MobileViT(nn.Module):
 
 
 def mobile_vit_xx_small(num_classes=1000, act_layer=nn.SiLU, coreml_compatible=False):
-    # pretrain weight link
-    # https://docs-assets.developer.apple.com/ml-research/models/cvnets/classification/mobilevit_xxs.pt
     config = get_config("xx_small")
     m = MobileViT(config,
                   num_classes=num_classes,
@@ -579,8 +494,6 @@ def mobile_vit_xx_small(num_classes=1000, act_layer=nn.SiLU, coreml_compatible=F
 
 
 def mobile_vit_x_small(num_classes=1000, act_layer=nn.SiLU, coreml_compatible=False):
-    # pretrain weight link
-    # https://docs-assets.developer.apple.com/ml-research/models/cvnets/classification/mobilevit_xs.pt
     config = get_config("x_small")
     m = MobileViT(config,
                   num_classes=num_classes,
@@ -590,8 +503,6 @@ def mobile_vit_x_small(num_classes=1000, act_layer=nn.SiLU, coreml_compatible=Fa
 
 
 def mobile_vit_small(num_classes=1000, act_layer=nn.SiLU, coreml_compatible=False):
-    # pretrain weight link
-    # https://docs-assets.developer.apple.com/ml-research/models/cvnets/classification/mobilevit_s.pt
     config = get_config("small")
     m = MobileViT(config,
                   num_classes=num_classes,
