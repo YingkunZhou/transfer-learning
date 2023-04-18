@@ -243,7 +243,7 @@ class SwiftFormerEncoder(nn.Module):
         super().__init__()
 
         self.local_representation = SwiftFormerLocalRepresentation(dim=dim, kernel_size=3, drop_path=0.,
-                                                                   use_layer_scale=True)
+                                                                   use_layer_scale=True, act_layer=act_layer)
         self.attn = EfficientAdditiveAttnetion(in_dims=dim, token_dim=dim, num_heads=1)
         self.linear = Mlp(in_features=dim, hidden_features=int(dim * mlp_ratio), act_layer=act_layer, drop=drop)
         self.drop_path = DropPath(drop_path) if drop_path > 0. \
@@ -293,7 +293,7 @@ def Stage(dim, index, layers, mlp_ratio=4.,
                 layer_scale_init_value=layer_scale_init_value))
 
         else:
-            blocks.append(ConvEncoder(dim=dim, hidden_dim=int(mlp_ratio * dim), kernel_size=3))
+            blocks.append(ConvEncoder(act_layer=act_layer, dim=dim, hidden_dim=int(mlp_ratio * dim), kernel_size=3))
 
     blocks = nn.Sequential(*blocks)
     return blocks
