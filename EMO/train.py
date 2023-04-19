@@ -8,7 +8,7 @@ from torchvision import transforms
 import torch.nn as nn
 
 from my_dataset import MyDataSet
-import model as efficientformerv2
+import model as EMO
 from utils import read_split_data, train_one_epoch, evaluate
 from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.layers.activations import *
