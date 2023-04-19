@@ -45,7 +45,7 @@ def get_act(act_layer='relu'):
         'swish': Swish,
         'mish': Mish,
         'hsigmoid': HardSigmoid,
-        'hardwish': HardSwish,
+        'hardswish': HardSwish,
         'nn.hardwish': nn.Hardswish,
         'hmish': HardMish,
         'tanh': Tanh,
