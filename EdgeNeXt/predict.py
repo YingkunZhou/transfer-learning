@@ -8,7 +8,7 @@ from PIL import Image
 from torchvision import transforms
 import matplotlib.pyplot as plt
 from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
-import model as efficientformerv2
+import model as edgenext
 from timm.layers.activations import *
 
 
