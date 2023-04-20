@@ -491,16 +491,3 @@ def efficientformer_l1(pretrained=False, **kwargs):
         **kwargs)
     model.default_cfg = _cfg(crop_pct=0.9)
     return model
-
-
-@register_model
-def efficientformer_l3(pretrained=False, **kwargs):
-    model = EfficientFormer(
-        layers=EfficientFormer_depth['l3'],
-        embed_dims=EfficientFormer_width['l3'],
-        downsamples=[True, True, True, True],
-        vit_num=4,
-        **kwargs)
-    model.default_cfg = _cfg(crop_pct=0.9)
-    return model
-
