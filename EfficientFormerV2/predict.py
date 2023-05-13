@@ -10,6 +10,12 @@ import matplotlib.pyplot as plt
 from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 import model as efficientformerv2
 from timm.layers.activations import *
+import time
+
+
+def cpu_timestamp(*args, **kwargs):
+    # perf_counter returns time in seconds
+    return time.perf_counter()
 
 
 def main(args):
@@ -24,7 +30,7 @@ def main(args):
     img_size = 224
     # to make image preprocessing as same as coreml
     std = sum(IMAGENET_DEFAULT_STD) / len(IMAGENET_DEFAULT_STD)
-    mean = [i/j*std for i, j in zip(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)]
+    mean = [i / j * std for i, j in zip(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)]
     data_transform = transforms.Compose(
         [transforms.Resize(img_size),
          transforms.CenterCrop(img_size),
@@ -40,6 +46,7 @@ def main(args):
     img = data_transform(img)
     # expand batch dimension
     img = torch.unsqueeze(img, dim=0)
+    img = img.to(device)
 
     # read class_indict
     assert os.path.exists(json_path), "file: '{}' dose not exist.".format(json_path)
@@ -69,17 +76,29 @@ def main(args):
     model.eval()
     with torch.no_grad():
         # predict class
-        predict = torch.squeeze(model(img.to(device))).cpu()
+        predict = torch.squeeze(model(img)).cpu()
         #  predict = torch.softmax(predict, dim=0)
-        predict_cla = torch.argmax(predict).numpy()
+        for i in range(len(predict)):
+            print("class: {:10}   prob: {:.11}".format(class_indict[str(i)],
+                                                       predict[i].numpy()))
+        if args.benchmark:
+            warmup_iterations = args.warmup_iter
+            test_iterations = args.test_iter
+            # warm-up
+            for i in range(warmup_iterations):
+                model(img)
+            start_time = cpu_timestamp()
+            # TODO: every time load img again?
+            for i in range(test_iterations):
+                model(img)
+            end_time = cpu_timestamp()
+            print("Number of samples processed per second: {:.2f}".format(test_iterations / (end_time - start_time)))
 
-    print_res = "class: {}   prob: {:.11}".format(class_indict[str(predict_cla)],
-                                                 predict[predict_cla].numpy())
-    plt.title(print_res)
-    for i in range(len(predict)):
-        print("class: {:10}   prob: {:.11}".format(class_indict[str(i)],
-                                                  predict[i].numpy()))
-    plt.show()
+    if not args.benchmark:
+        predict_cla = torch.argmax(predict).numpy()
+        plt.title("class: {}   prob: {:.11}".format(class_indict[str(predict_cla)],
+                                                    predict[predict_cla].numpy()))
+        plt.show()
 
 
 if __name__ == '__main__':
@@ -89,6 +108,9 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default="./weights/s0.best_model-gelu.pth")
     parser.add_argument('--activation', type=str, default='gelu')
     parser.add_argument('--json_path', type=str, default="../labels/flowers_indices.json")
+    parser.add_argument('--benchmark', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--warmup_iter', type=int, default=20)
+    parser.add_argument('--test_iter', type=int, default=100)
 
     opt = parser.parse_args()
     main(opt)
