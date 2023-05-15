@@ -10,12 +10,13 @@ def main(args):
     num_classes = args.num_classes
     weights = args.weights
     factor = args.factor
-    coreml = args.coreml
+    convertion = args.convertion
     labels = args.label_path
 
     name = "efficientformerv2_" + factor
     create_model = getattr(efficientformerv2, name)
 
+    # just use CPU to convert
     device = torch.device("cpu")
     activation = args.activation
     act_layer = nn.GELU
@@ -37,6 +38,8 @@ def main(args):
     size = 224
     inputs = torch.randn((1, 3, size, size))
     traced_model = torch.jit.trace(model, inputs)
+    if convertion == 'all' or convertion == 'pt':
+        traced_model.save("ncnn/%s-%d.pt" % (name, num_classes))
 
     scale = len(IMAGENET_DEFAULT_STD) / sum(IMAGENET_DEFAULT_STD)
     bias = [-i/j for i, j in zip(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)]
@@ -46,7 +49,7 @@ def main(args):
                                scale=scale/255,
                                bias=bias)
 
-    if coreml == 'all' or coreml == 'model':
+    if convertion == 'all' or convertion == 'model':
         mlmodel = ct.convert(
             traced_model,
             inputs=[image_input],
@@ -54,7 +57,7 @@ def main(args):
         )
         mlmodel.save("models/%s-%d.mlmodel" % (name, num_classes))
 
-    if coreml == 'all' or coreml == 'package':
+    if convertion == 'all' or convertion == 'package':
         mlmodel = ct.convert(
             traced_model,
             convert_to="mlprogram",
@@ -70,7 +73,7 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default="./weights/s0.best_model-gelu.pth")
     parser.add_argument('--activation', type=str, default="gelu")
     parser.add_argument('--label_path', type=str, default="../labels/flowers.txt")
-    parser.add_argument('--coreml', type=str, default='all')
+    parser.add_argument('--convertion', type=str, default='all')
 
     opt = parser.parse_args()
     main(opt)

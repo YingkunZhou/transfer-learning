@@ -75,24 +75,41 @@ def main(args):
     model.load_state_dict(weights_dict)
     model.eval()
     with torch.no_grad():
-        # predict class
-        predict = torch.squeeze(model(img)).cpu()
-        #  predict = torch.softmax(predict, dim=0)
-        for i in range(len(predict)):
-            print("class: {:10}   prob: {:.11}".format(class_indict[str(i)],
-                                                       predict[i].numpy()))
         if args.benchmark:
+            time_min = 1e5
+            time_avg = 0
+            time_max = 0
             warmup_iterations = args.warmup_iter
             test_iterations = args.test_iter
             # warm-up
             for i in range(warmup_iterations):
-                model(img)
-            start_time = cpu_timestamp()
+                out = model(img)
             # TODO: every time load img again?
             for i in range(test_iterations):
-                model(img)
-            end_time = cpu_timestamp()
-            print("Number of samples processed per second: {:.2f}".format(test_iterations / (end_time - start_time)))
+                start_time = cpu_timestamp()
+                out = model(img)
+                end_time = cpu_timestamp()
+                time = (end_time - start_time) * 1000.0
+                time_min = time if time < time_min else time_min
+                time_max = time if time > time_max else time_max
+                time_avg += time
+            time_avg /= test_iterations
+            print("min = {:7.2f}  max = {:7.2f}  avg = {:7.2f}".format(time_min, time_max, time_avg))
+            predict = torch.squeeze(out).cpu()
+            for i in [985,723,872]:
+                print("class: {:10}   prob: {:.11}".format(str(i), predict[i].numpy()))
+            #  start_time = cpu_timestamp()
+            #  for i in range(test_iterations):
+                #  model(img)
+            #  end_time = cpu_timestamp()
+            #  print("Number of samples processed per second: {:.2f}".format(test_iterations / (end_time - start_time)))
+        else:
+            # predict class
+            predict = torch.squeeze(model(img)).cpu()
+            #  predict = torch.softmax(predict, dim=0)
+            for i in range(len(predict)):
+                print("class: {:10}   prob: {:.11}".format(class_indict[str(i)],
+                                                       predict[i].numpy()))
 
     if not args.benchmark:
         predict_cla = torch.argmax(predict).numpy()
