@@ -43,6 +43,7 @@ def main(args):
         if convertion == 'onnx':
             return
     if convertion == 'all' or convertion == 'pd':
+        # https://www.paddlepaddle.org.cn/documentation/docs/zh/develop/guides/model_convert/convert_with_x2paddle_cn.html
         from x2paddle.convert import pytorch2paddle
         pytorch2paddle(module=model,
                        save_dir="./pd_model",
