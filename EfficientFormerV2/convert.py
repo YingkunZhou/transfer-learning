@@ -37,27 +37,29 @@ def main(args):
 
     size = 224
     inputs = torch.randn((1, 3, size, size))
+    if convertion == 'all' or convertion == 'onnx':
+        # https://pytorch.org/docs/stable/onnx.html
+        # https://deci.ai/blog/how-to-convert-a-pytorch-model-to-onnx/
+        torch.onnx.export(model, inputs, "onnx/%s-%d.onnx" % (name, num_classes), export_params=True, input_names=['input'])
+        if convertion == 'onnx':
+            return
+
     traced_model = torch.jit.trace(model, inputs)
+    # followed by https://github.com/Tencent/ncnn/tree/master/tools/pnnx
     if convertion == 'all' or convertion == 'pt':
-        traced_model.save("ncnn/%s-%d.pt" % (name, num_classes))
+        traced_model.save("torchscript/%s-%d.pt" % (name, num_classes))
 
-    scale = len(IMAGENET_DEFAULT_STD) / sum(IMAGENET_DEFAULT_STD)
-    bias = [-i/j for i, j in zip(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)]
+    if convertion == 'all' or convertion == 'coreml' or \
+       convertion == 'package' or convertion == 'mlmodel':
+        scale = len(IMAGENET_DEFAULT_STD) / sum(IMAGENET_DEFAULT_STD)
+        bias = [-i/j for i, j in zip(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD)]
 
-    image_input = ct.ImageType(name = "input",
-                               shape=inputs.shape,
-                               scale=scale/255,
-                               bias=bias)
+        image_input = ct.ImageType(name = "input",
+                                   shape=inputs.shape,
+                                   scale=scale/255,
+                                   bias=bias)
 
-    if convertion == 'all' or convertion == 'model':
-        mlmodel = ct.convert(
-            traced_model,
-            inputs=[image_input],
-            classifier_config=ct.ClassifierConfig(labels)
-        )
-        mlmodel.save("models/%s-%d.mlmodel" % (name, num_classes))
-
-    if convertion == 'all' or convertion == 'package':
+    if convertion == 'all' or convertion == 'coreml' or convertion == 'package':
         mlmodel = ct.convert(
             traced_model,
             convert_to="mlprogram",
@@ -65,6 +67,15 @@ def main(args):
             classifier_config=ct.ClassifierConfig(labels)
         )
         mlmodel.save("models/%s-%d.mlpackage" % (name, num_classes))
+
+    if convertion == 'all' or convertion == 'coreml' or convertion == 'mlmodel':
+        mlmodel = ct.convert(
+            traced_model,
+            inputs=[image_input],
+            classifier_config=ct.ClassifierConfig(labels)
+        )
+        mlmodel.save("models/%s-%d.mlmodel" % (name, num_classes))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
