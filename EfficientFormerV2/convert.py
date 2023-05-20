@@ -1,5 +1,4 @@
 import argparse
-import coremltools as ct
 import torch
 import torch.nn as nn
 import model as efficientformerv2
@@ -43,12 +42,25 @@ def main(args):
         torch.onnx.export(model, inputs, "onnx/%s-%d.onnx" % (name, num_classes), export_params=True, input_names=['input'])
         if convertion == 'onnx':
             return
+    if convertion == 'all' or convertion == 'pd':
+        from x2paddle.convert import pytorch2paddle
+        pytorch2paddle(module=model,
+                       save_dir="./pd_model",
+                       jit_type="trace",
+                       input_examples=[inputs],
+                       enable_code_optim=False,
+                       convert_to_lite=True,
+                       lite_valid_places="arm",
+                       lite_model_type="naive_buffer")
+        if convertion == 'pd':
+            return
 
     traced_model = torch.jit.trace(model, inputs)
     # followed by https://github.com/Tencent/ncnn/tree/master/tools/pnnx
     if convertion == 'all' or convertion == 'pt':
         traced_model.save("torchscript/%s-%d.pt" % (name, num_classes))
 
+    import coremltools as ct
     if convertion == 'all' or convertion == 'coreml' or \
        convertion == 'package' or convertion == 'mlmodel':
         scale = len(IMAGENET_DEFAULT_STD) / sum(IMAGENET_DEFAULT_STD)
