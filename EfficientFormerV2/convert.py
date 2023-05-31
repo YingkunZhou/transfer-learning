@@ -39,7 +39,7 @@ def main(args):
     if convertion == 'all' or convertion == 'onnx':
         # https://pytorch.org/docs/stable/onnx.html
         # https://deci.ai/blog/how-to-convert-a-pytorch-model-to-onnx/
-        torch.onnx.export(model, inputs, "onnx/%s-%d.onnx" % (name, num_classes), export_params=True, input_names=['input'])
+        torch.onnx.export(model, inputs, "onnx/%s-%d.onnx" % (name, num_classes), export_params=True, input_names=['input'], output_names=['output'])
         if convertion == 'onnx':
             return
     if convertion == 'all' or convertion == 'pd':
@@ -60,6 +60,32 @@ def main(args):
     # followed by https://github.com/Tencent/ncnn/tree/master/tools/pnnx
     if convertion == 'all' or convertion == 'pt':
         traced_model.save("torchscript/%s-%d.pt" % (name, num_classes))
+        if convertion == 'pt':
+            return
+
+    if convertion == 'all' or convertion == 'dqpt':
+        model_dynamic_quantized = torch.quantization.quantize_dynamic(
+            traced_model, qconfig_spec={torch.nn.Linear}, dtype=torch.qint8)
+        model_dynamic_quantized.save("torchscript/qint8-%s-%d.pt" % (name, num_classes))
+        if convertion == 'dqpt':
+            return
+
+    if convertion == 'all' or convertion == 'sqpt':
+        backend = "qnnpack"
+        model.qconfig = torch.quantization.get_default_qconfig(backend)
+        torch.backends.quantized.engine = backend
+        model_static_quantized = torch.quantization.prepare(traced_model, inplace=False)
+        model_static_quantized = torch.quantization.convert(model_static_quantized, inplace=False)
+        model_static_quantized.save("torchscript/qnn-%s-%d.pt" % (name, num_classes))
+        if convertion == 'sqpt':
+            return
+
+    if convertion == 'all' or convertion == 'mpt':
+        from torch.utils.mobile_optimizer import optimize_for_mobile
+        mobile_traced_model = optimize_for_mobile(traced_model)
+        mobile_traced_model._save_for_lite_interpreter("torchscript/%s-%d.ptl" % (name, num_classes))
+        if convertion == 'mpt':
+            return
 
     import coremltools as ct
     if convertion == 'all' or convertion == 'coreml' or \
