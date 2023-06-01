@@ -25,7 +25,7 @@ def main(args):
     factor = args.factor
 
     #  device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
+    device = torch.device(args.device)
 
     img_size = 224
     # to make image preprocessing as same as coreml
@@ -126,6 +126,8 @@ if __name__ == '__main__':
     parser.add_argument('--activation', type=str, default='gelu')
     parser.add_argument('--json_path', type=str, default="../labels/flowers_indices.json")
     parser.add_argument('--benchmark', action=argparse.BooleanOptionalAction)
+    # parser.add_argument('--benchmark', action='store_true') # for python 3.8
+    parser.add_argument('--device', type=str, default='cpu')
     parser.add_argument('--warmup_iter', type=int, default=20)
     parser.add_argument('--test_iter', type=int, default=100)
 
