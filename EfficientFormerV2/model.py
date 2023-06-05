@@ -290,6 +290,42 @@ class Attention4DDownsample(torch.nn.Module):
         out = self.proj(out)
         return out
 
+class EmbeddingAsub(nn.Module):
+    def __init__(self, patch_size=3, stride=2, padding=1,
+                 in_chans=3, embed_dim=768, norm_layer=nn.BatchNorm2d,
+                 resolution=None, act_layer=nn.ReLU, attn_block=Attention4DDownsample):
+        super().__init__()
+
+        self.attn = attn_block(dim=in_chans, out_dim=embed_dim,
+                                resolution=resolution, act_layer=act_layer)
+        patch_size = to_2tuple(patch_size)
+        stride = to_2tuple(stride)
+        padding = to_2tuple(padding)
+        self.conv = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size,
+                                stride=stride, padding=padding)
+        self.bn = norm_layer(embed_dim) if norm_layer else nn.Identity()
+
+    def forward(self, x):
+        out_conv = self.conv(x)
+        out = self.attn(x) + self.bn(out_conv)
+        return out
+
+class EmbeddingAsubN(nn.Module):
+    def __init__(self, patch_size=3, stride=2, padding=1,
+                 in_chans=3, embed_dim=768, norm_layer=nn.BatchNorm2d):
+        super().__init__()
+
+        patch_size = to_2tuple(patch_size)
+        stride = to_2tuple(stride)
+        padding = to_2tuple(padding)
+        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size,
+                                stride=stride, padding=padding)
+        self.norm = norm_layer(embed_dim) if norm_layer else nn.Identity()
+
+    def forward(self, x):
+        x = self.proj(x)
+        out = self.norm(x)
+        return out
 
 class Embedding(nn.Module):
     def __init__(self, patch_size=3, stride=2, padding=1,
@@ -532,8 +568,25 @@ class EfficientFormerV2(nn.Module):
                 # downsampling between two stages
                 if i >= 2:
                     asub = True
+                    network.append(
+                        EmbeddingAsub(
+                            patch_size=down_patch_size, stride=down_stride,
+                            padding=down_pad,
+                            in_chans=embed_dims[i], embed_dim=embed_dims[i + 1],
+                            resolution=math.ceil(resolution / (2 ** (i + 2))),
+                            act_layer=act_layer, norm_layer=norm_layer,
+                        )
+                    )
                 else:
                     asub = False
+                    network.append(
+                        EmbeddingAsubN(
+                            patch_size=down_patch_size, stride=down_stride,
+                            padding=down_pad, norm_layer=norm_layer,
+                            in_chans=embed_dims[i], embed_dim=embed_dims[i + 1]
+                        )
+                    )
+                """
                 network.append(
                     Embedding(
                         patch_size=down_patch_size, stride=down_stride,
@@ -544,6 +597,7 @@ class EfficientFormerV2(nn.Module):
                         act_layer=act_layer, norm_layer=norm_layer,
                     )
                 )
+                """
 
         self.network = nn.ModuleList(network)
 
@@ -620,11 +674,13 @@ class EfficientFormerV2(nn.Module):
         outs = []
         for idx, block in enumerate(self.network):
             x = block(x)
-            if self.fork_feat and idx in self.out_indices:
+            #if self.fork_feat and idx in self.out_indices:
+            if False:
                 norm_layer = getattr(self, f'norm{idx}')
                 x_out = norm_layer(x)
                 outs.append(x_out)
-        if self.fork_feat:
+        #if self.fork_feat:
+        if False:
             return outs
         return x
 
@@ -636,7 +692,8 @@ class EfficientFormerV2(nn.Module):
             return x
         # print(x.size())
         x = self.norm(x)
-        if self.dist:
+        #if self.dist:
+        if False:
             cls_out = self.head(x.flatten(2).mean(-1)), self.dist_head(x.flatten(2).mean(-1))
             if not self.training:
                 cls_out = (cls_out[0] + cls_out[1]) / 2
